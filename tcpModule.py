@@ -68,7 +68,7 @@ def start_tcp_server():
                         forward_message(device_id, data)
                 else:
                     # 登录失败
-                    send_response(client_socket, 'loginFail')
+                    # send_response(client_socket, 'loginFail')
                     break
             except Exception as e:
                 print(f"发生错误：{str(e)}")
@@ -165,7 +165,7 @@ def start_tcp_server():
 
     # 创建TCP服务器
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(('localhost', tcp_port))
+    server_socket.bind(('0.0.0.0', tcp_port))
     server_socket.listen(5)
 
     print(f"TCP服务器正在监听端口 {tcp_port}...")

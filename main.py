@@ -535,6 +535,6 @@ if __name__ == '__main__':
     thread = threading.Thread(target=start_tcp_server)
     thread.daemon = True
     thread.start()
-    app.run(port=web_port)
+    app.run(host='0.0.0.0', port=web_port)
 
 

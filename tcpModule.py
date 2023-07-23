@@ -24,6 +24,8 @@ def start_tcp_server():
 
     # 函数用于处理客户端连接
     def handle_client_connection(client_socket):
+        # 发送"whoAreYou"消息给客户端
+        send_response(client_socket, 'whoAreYou')
         while True:
             try:
                 data = client_socket.recv(1024).decode()
@@ -36,12 +38,12 @@ def start_tcp_server():
                     # 登录成功
                     device_id = get_device_id(username)
                     if device_id is None:
-                        send_response(client_socket, 'loginFail')
+                        # send_response(client_socket, 'loginFail')
                         break
 
                     # 检查设备在线状态
                     if is_device_online(device_id):
-                        send_response(client_socket, 'loginFail')
+                        # send_response(client_socket, 'loginFail')
                         break
 
                     # 更新设备在线状态为1

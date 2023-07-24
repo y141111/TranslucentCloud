@@ -2,6 +2,8 @@ import sqlite3
 import threading
 import socket
 import hashlib
+import time
+
 
 def start_tcp_server():
     # 连接到SQLite数据库
@@ -24,12 +26,35 @@ def start_tcp_server():
 
     # 函数用于处理客户端连接
     def handle_client_connection(client_socket):
+        # 获取设备远程地址
+        remote_addr = client_socket.getpeername()
+        print(f"设备 {remote_addr} 建立连接，等待身份验证")
+
         # 发送"whoAreYou"消息给客户端
-        send_response(client_socket, 'whoAreYou')
+        # send_response(client_socket, 'whoAreYou')
+
+        # Function to send heartbeat packet
+        def send_heartbeat_wrapper():
+            print(f"设备 {remote_addr} {device_id} {username} {password} 开启心跳包线程！")
+            send_heartbeat(client_socket, remote_addr)
+
+        # Function to send heartbeat packet
+        def send_heartbeat(client_socket, remote_addr):
+            while True:
+                time.sleep(0.5)  # Wait for 0.5 second
+                try:
+                    client_socket.send('!'.encode('gbk'))  # Send heartbeat packet
+                except Exception as e:
+                    print(f"设备 {remote_addr} 发送心跳包错误，错误代码: \" {str(e)} \"")
+                    print(f"设备 {remote_addr} 与其断开连接")
+                    break
+
         while True:
             try:
                 data = client_socket.recv(1024).decode()
                 if not data:
+                    print(f"设备 {remote_addr} 收到空数据")
+                    print(f"设备 {remote_addr} 与其断开连接")
                     break
                 # 解析用户名和密码
                 username, password = parse_credentials(data)
@@ -37,12 +62,17 @@ def start_tcp_server():
                 if verify_credentials(username, password):
                     # 登录成功
                     device_id = get_device_id(username)
+                    # 获取设备id号
                     if device_id is None:
+                        print(f"设备 {remote_addr} {username} {password} id号不存在！")
+                        print(f"设备 {remote_addr} 与其断开连接")
                         # send_response(client_socket, 'loginFail')
                         break
 
                     # 检查设备在线状态
                     if is_device_online(device_id):
+                        print(f"设备 {remote_addr} {username} {password} 已在线，重复登陆！")
+                        print(f"设备 {remote_addr} 与其断开连接")
                         # send_response(client_socket, 'loginFail')
                         break
 
@@ -53,7 +83,16 @@ def start_tcp_server():
                     add_device_connection(device_id, client_socket)
 
                     # 打印提示信息
-                    print(f"设备 {device_id} 登录成功！")
+                    print(f"设备 {remote_addr} {device_id} {username} {password} 登录成功！")
+                    print(f"设备 {remote_addr} 登陆成功！")
+
+                    # 发送给设备登陆成功
+                    # send_response(client_socket, 'loginSuccess')
+
+                    # Create a thread to send heartbeat packets
+                    # heartbeat_thread = threading.Thread(target=send_heartbeat, args=(client_socket,))
+                    heartbeat_thread = threading.Thread(target=send_heartbeat_wrapper)
+                    heartbeat_thread.start()
 
                     # 接收并处理后续消息
                     while True:
@@ -62,16 +101,19 @@ def start_tcp_server():
                             break
 
                         # 打印接收到的消息
-                        print(f"收到设备 {device_id} 的消息: {data}")
+                        # print(f"收到设备 {device_id} 的消息: {data}")
 
                         # 转发消息给其他设备
-                        forward_message(device_id, data)
+                        forward_message(device_id, data, remote_addr, username, password)
                 else:
                     # 登录失败
+                    print(f"设备 {remote_addr} {username} {password} 账号或密码不对！{data}")
+                    print(f"设备 {remote_addr} 与其断开连接")
                     # send_response(client_socket, 'loginFail')
                     break
             except Exception as e:
-                print(f"发生错误：{str(e)}")
+                print(f"设备 {remote_addr} 发生错误：{str(e)}")
+                print(f"设备 {remote_addr} 与其断开连接")
                 break
 
         # 获取设备ID
@@ -144,16 +186,25 @@ def start_tcp_server():
                 del device_connections[device_id]
 
     # 函数用于转发消息给其他设备
-    def forward_message(device_id, message):
+    def forward_message(device_id, message, formRemote_addr, uname, upassword):
+        # 获取数据库中转发的 目标设备
         cursor.execute('SELECT device_b_id FROM passthrough WHERE device_a_id=?', (device_id,))
         target_device_ids = cursor.fetchall()
         for target_device_id in target_device_ids:
             target_device_id = target_device_id[0]
+
+            # 获取数据库中目标设备的账号密码
+            cursor.execute(f'SELECT username, password FROM devices WHERE id="{target_device_id}"')
+            credentials = cursor.fetchall()
+            target_device_uname = credentials[0][0]
+            target_device_upassword = credentials[0][1]
+
             if target_device_id in device_connections:
                 target_socket = device_connections[target_device_id]
                 target_socket.send(message.encode())
             else:
-                print(f"设备 {target_device_id} 不在线！")
+                print(
+                    f"设备 {formRemote_addr} {device_id} {uname} {upassword} 发送消息，要转发给 设备 {target_device_id} {target_device_uname} {target_device_upassword} (不在线！)")
 
     # 函数用于根据客户端连接获取设备ID
     def get_device_id_by_socket(client_socket):

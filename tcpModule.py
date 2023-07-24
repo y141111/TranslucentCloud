@@ -1,10 +1,9 @@
+import queue
+import socket
 import sqlite3
 import threading
-import socket
-import hashlib
 import time
 from multiprocessing.pool import ThreadPool
-import queue
 
 
 class TCPServer(object):

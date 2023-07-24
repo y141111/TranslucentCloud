@@ -4,11 +4,18 @@ import socket
 import hashlib
 import time
 from multiprocessing.pool import ThreadPool
+import queue
 
 
 class TCPServer(object):
 
     def __init__(self):
+        # 列队存储要执行的数据库操作
+        self.db_queue = queue.Queue()
+
+        #
+        threading.Thread(target=self.run_db_task).start()
+
         # 在初始化时连接SQLite数据库
         self.conn = sqlite3.connect('cfg.sqlite3', check_same_thread=False)
         self.cursor = self.conn.cursor()
@@ -18,6 +25,16 @@ class TCPServer(object):
 
         # 在初始化时启动TCP服务器
         self.start()
+
+    def run_db_task(self):
+        """
+        这个函数 从队列中获取数据库操作并执行
+        :return:
+        """
+        while True:
+            func, args = self.db_queue.get()
+            func(*args)
+            self.db_queue.task_done()
 
     def start(self):
         # 获取数据库中的TCP端口号
@@ -63,6 +80,9 @@ class TCPServer(object):
                 try:
                     # 获取目标设备ID
                     target_device_ids = self.get_target_device_id(device_id)
+                    if target_device_ids is None:
+                        print("设备没有目标设备 send_heartbeat")
+                        continue
                     # 判断目标设备 有没有在线的
                     for target_device_id in target_device_ids:
                         target_device_id = target_device_id[0]
@@ -74,7 +94,8 @@ class TCPServer(object):
                         # 否则不发送
                         else:
                             continue
-                except:
+                except Exception as e:
+                    print(f" {e} ")
                     print(f"设备 {remote_addr} 发送心跳包错误,与其断开连接")
                     break
 
@@ -100,12 +121,14 @@ class TCPServer(object):
                     if device_id is None:
                         print(f"设备 {remote_addr} {username} {password} id号不存在!")
                         print(f"设备 {remote_addr} 与其断开连接")
+                        device_id = None
                         break
 
                     # 检查设备是否已在线
                     if self.is_device_online(device_id):
                         print(f"设备 {remote_addr} {username} {password} 已在线,重复登陆!")
                         print(f"设备 {remote_addr} 与其断开连接")
+                        device_id = None
                         break
 
                     # 更新在线状态为在线
@@ -146,6 +169,7 @@ class TCPServer(object):
             # 关闭客户端连接
             client_socket.close()
         else:
+            print(f"{device_id} 断开这个设备！")
             self.update_device_online_status(device_id, 0)
             # 移除设备连接
             self.remove_device_connection(device_id)
@@ -185,7 +209,13 @@ class TCPServer(object):
 
     # 获取目标设备ID
     def get_target_device_id(self, device_id):
-        self.cursor.execute('SELECT device_b_id FROM passthrough WHERE device_a_id=?', (device_id,))
+        # 不直接执行数据库操作,把操作封装成一个函数,加入队列
+        def query_db():
+            self.cursor.execute('SELECT device_b_id FROM passthrough WHERE device_a_id=?', (device_id,))
+        # 加入队列
+        self.db_queue.put((query_db, ()))
+        # 等待队列空
+        self.db_queue.join()
         target_device_ids = self.cursor.fetchall()
         if target_device_ids:
             return target_device_ids
@@ -227,7 +257,9 @@ class TCPServer(object):
     def forward_message(self, device_id, username, password, message, remote_addr):
         # 获取目标设备ID
         target_device_ids = self.get_target_device_id(device_id)
-
+        if target_device_ids is None:
+            print("设备没有目标设备 forward_message")
+            return
         for target_device_id in target_device_ids:
             target_device_id = target_device_id[0]
             # 如果目标设备在线,则直接转发

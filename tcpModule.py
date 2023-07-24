@@ -12,13 +12,16 @@ class TCPServer(object):
     def __init__(self):
         # 列队存储要执行的数据库操作
         self.db_queue = queue.Queue()
+        self.local_conn = threading.local()
 
         #
         threading.Thread(target=self.run_db_task).start()
 
         # 在初始化时连接SQLite数据库
-        self.conn = sqlite3.connect('cfg.sqlite3', check_same_thread=False)
-        self.cursor = self.conn.cursor()
+        # self.conn = sqlite3.connect('cfg.sqlite3', check_same_thread=False)
+        # self.cursor = self.conn.cursor()
+        self.local_conn.conn = sqlite3.connect('cfg.sqlite3', check_same_thread=False)
+        self.local_conn.cursor = self.local_conn.conn.cursor()
 
         # 创建连接池,最大连接数4096
         self.pool = ThreadPool(processes=4096)
@@ -38,12 +41,12 @@ class TCPServer(object):
 
     def start(self):
         # 获取数据库中的TCP端口号
-        self.cursor.execute('SELECT value FROM config WHERE name="tcpPort"')
-        tcp_port = int(self.cursor.fetchone()[0])
+        self.local_conn.cursor.execute('SELECT value FROM config WHERE name="tcpPort"')
+        tcp_port = int(self.local_conn.cursor.fetchone()[0])
 
         # 将所有协议类型为tcpServer的设备设置为离线状态
-        self.cursor.execute('UPDATE devices SET online=0 WHERE protocol="tcpServer"')
-        self.conn.commit()
+        self.local_conn.cursor.execute('UPDATE devices SET online=0 WHERE protocol="tcpServer"')
+        self.local_conn.conn.commit()
 
         # 创建字典用于存储设备连接
         self.device_connections = {}
@@ -62,6 +65,8 @@ class TCPServer(object):
         threading.Thread(target=self.handle_client_connections).start()
 
     def handle_client_connections(self):
+        self.local_conn.conn = sqlite3.connect('cfg.sqlite3', check_same_thread=False)
+        self.local_conn.cursor = self.local_conn.conn.cursor()
         while True:
             client_socket, address = self.server_socket.accept()
             # 使用连接池启动线程处理每个连接
@@ -69,11 +74,16 @@ class TCPServer(object):
 
     def handle_client_connection(self, client_socket):
 
+        self.local_conn.conn = sqlite3.connect('cfg.sqlite3', check_same_thread=False)
+        self.local_conn.cursor = self.local_conn.conn.cursor()
+
         remote_addr = client_socket.getpeername()
         print(f"设备 {remote_addr} 建立连接,等待身份验证")
 
         # 定义发送心跳包的函数
         def send_heartbeat(device_id, username, password):
+            self.local_conn.conn = sqlite3.connect('cfg.sqlite3', check_same_thread=False)
+            self.local_conn.cursor = self.local_conn.conn.cursor()
             print(f"设备 {remote_addr} {device_id} {username} {password} 开启心跳包线程!")
             while True:
                 time.sleep(0.5)
@@ -151,7 +161,14 @@ class TCPServer(object):
                         # 打印收到的设备信息。
                         # print(f"设备 {remote_addr} {device_id} {username} {password}  的消息: {data}")
 
-                        self.forward_message(device_id, username, password, data, remote_addr)
+                        # 获取目标设备ID
+                        target_device_ids = self.get_target_device_id(device_id)
+
+                        # 启动线程发送心跳包
+                        # send_heartbeat(device_id, username, password, target_device_ids)
+
+                        self.forward_message(device_id, username, password, data, remote_addr, target_device_ids)
+                        # self.forward_message(device_id, username, password, data, remote_addr)
 
                 else:
                     # 登录失败
@@ -192,8 +209,8 @@ class TCPServer(object):
     # 验证用户名和密码  
     def verify_credentials(self, username, password):
         # 从数据库中获取账号密码
-        self.cursor.execute('SELECT username, password FROM devices WHERE protocol="tcpServer"')
-        credentials = self.cursor.fetchall()
+        self.local_conn.cursor.execute('SELECT username, password FROM devices WHERE protocol="tcpServer"')
+        credentials = self.local_conn.cursor.fetchall()
         for credential in credentials:
             if credential[0] == username and credential[1] == password:
                 return True
@@ -201,8 +218,8 @@ class TCPServer(object):
 
     # 获取设备ID        
     def get_device_id(self, username):
-        self.cursor.execute('SELECT id FROM devices WHERE username=?', (username,))
-        result = self.cursor.fetchone()
+        self.local_conn.cursor.execute('SELECT id FROM devices WHERE username=?', (username,))
+        result = self.local_conn.cursor.fetchone()
         if result:
             return result[0]
         return None
@@ -210,37 +227,37 @@ class TCPServer(object):
     # 获取目标设备ID
     def get_target_device_id(self, device_id):
         # 不直接执行数据库操作,把操作封装成一个函数,加入队列
-        def query_db():
-            self.cursor.execute('SELECT device_b_id FROM passthrough WHERE device_a_id=?', (device_id,))
+        # def query_db():
+        self.local_conn.cursor.execute('SELECT device_b_id FROM passthrough WHERE device_a_id=?', (device_id,))
         # 加入队列
-        self.db_queue.put((query_db, ()))
+        # self.db_queue.put((query_db, ()))
         # 等待队列空
-        self.db_queue.join()
-        target_device_ids = self.cursor.fetchall()
+        # self.db_queue.join()
+        target_device_ids = self.local_conn.cursor.fetchall()
         if target_device_ids:
             return target_device_ids
         return None
 
     # 检查设备是否在线
     def is_device_online(self, device_id):
-        self.cursor.execute('SELECT online FROM devices WHERE id=?', (device_id,))
-        result = self.cursor.fetchone()
+        self.local_conn.cursor.execute('SELECT online FROM devices WHERE id=?', (device_id,))
+        result = self.local_conn.cursor.fetchone()
         if result and result[0] == 1:
             return True
         return False
 
     # 检查设备是否在线
     def is_device_in_device_connections(self, device_id):
-        self.cursor.execute('SELECT online FROM devices WHERE id=?', (device_id,))
-        result = self.cursor.fetchone()
+        self.local_conn.cursor.execute('SELECT online FROM devices WHERE id=?', (device_id,))
+        result = self.local_conn.cursor.fetchone()
         if result and result[0] == 1:
             return True
         return False
 
     # 更新设备在线状态
     def update_device_online_status(self, device_id, status):
-        self.cursor.execute('UPDATE devices SET online=? WHERE id=?', (status, device_id))
-        self.conn.commit()
+        self.local_conn.cursor.execute('UPDATE devices SET online=? WHERE id=?', (status, device_id))
+        self.local_conn.conn.commit()
 
     # 添加设备连接        
     def add_device_connection(self, device_id, socket):
@@ -254,9 +271,9 @@ class TCPServer(object):
                 del self.device_connections[device_id]
 
     # 转发消息给其他设备
-    def forward_message(self, device_id, username, password, message, remote_addr):
+    def forward_message(self, device_id, username, password, message, remote_addr, target_device_ids):
         # 获取目标设备ID
-        target_device_ids = self.get_target_device_id(device_id)
+        # target_device_ids = self.get_target_device_id(device_id)
         if target_device_ids is None:
             print("设备没有目标设备 forward_message")
             return

@@ -125,8 +125,8 @@ class TCPServer(object):
                         data = client_socket.recv(1024).decode()
                         if not data:
                             break
-
-                        print(f"设备 {remote_addr} {device_id} {username} {password}  的消息: {data}")
+                        # 打印收到的设备信息。
+                        # print(f"设备 {remote_addr} {device_id} {username} {password}  的消息: {data}")
 
                         self.forward_message(device_id, username, password, data, remote_addr)
 
@@ -153,7 +153,6 @@ class TCPServer(object):
             client_socket.close()
         # 关闭客户端连接
         client_socket.close()
-
 
     # 解析用户名和密码
     def parse_credentials(self, data):

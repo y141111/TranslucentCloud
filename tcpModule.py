@@ -3,6 +3,7 @@ import threading
 import socket
 import hashlib
 import time
+from multiprocessing.pool import ThreadPool
 
 
 class TCPServer(object):
@@ -11,6 +12,9 @@ class TCPServer(object):
         # 在初始化时连接SQLite数据库
         self.conn = sqlite3.connect('cfg.sqlite3', check_same_thread=False)
         self.cursor = self.conn.cursor()
+
+        # 创建连接池,最大连接数4096
+        self.pool = ThreadPool(processes=4096)
 
         # 在初始化时启动TCP服务器
         self.start()
@@ -43,8 +47,8 @@ class TCPServer(object):
     def handle_client_connections(self):
         while True:
             client_socket, address = self.server_socket.accept()
-            # 为每个客户端连接启动一个线程
-            threading.Thread(target=self.handle_client_connection, args=(client_socket,)).start()
+            # 使用连接池启动线程处理每个连接
+            self.pool.apply_async(self.handle_client_connection, (client_socket,))
 
     def handle_client_connection(self, client_socket):
 

@@ -6,8 +6,9 @@ import hashlib
 from functools import wraps
 
 # 创建Flask应用
-from tcpModule import start_tcp_server
+# from tcpModule import start_tcp_server
 # from udpModule import start_udp_server
+from tcpModule import TCPServer
 
 app = Flask(__name__)
 
@@ -533,13 +534,7 @@ def delete_config(config_id):
 # 运行Flask应用
 if __name__ == '__main__':
     # 在其他地方调用函数启动TCP服务器
-    thread = threading.Thread(target=start_tcp_server)
-    thread.daemon = True
-    thread.start()
-    # # 在其他地方调用函数启动TCP服务器
-    # thread1 = threading.Thread(target=start_udp_server)
-    # thread1.daemon = True
-    # thread1.start()
+    tcp_server = TCPServer()
     app.run(host='0.0.0.0', port=web_port)
 
 

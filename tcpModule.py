@@ -56,16 +56,29 @@ class TCPServer(object):
         print(f"设备 {remote_addr} 建立连接,等待身份验证")
 
         # 定义发送心跳包的函数
-        def send_heartbeat():
-            print(f"设备 {remote_addr} {self.device_id} {self.username} {self.password} 开启心跳包线程!")
+        def send_heartbeat(device_id, username, password):
+            print(f"设备 {remote_addr} {device_id} {username} {password} 开启心跳包线程!")
             while True:
                 time.sleep(0.5)
                 try:
-                    client_socket.send('!'.encode('gbk'))
+                    # 获取目标设备ID
+                    target_device_ids = self.get_target_device_id(device_id)
+                    # 判断目标设备 有没有在线的
+                    for target_device_id in target_device_ids:
+                        target_device_id = target_device_id[0]
+                        # 如果目标设备在线,则发送心跳包
+                        if target_device_id in self.device_connections:
+                            client_socket.send('!'.encode('gbk'))
+                            # 发送一次就行
+                            continue
+                        # 否则不发送
+                        else:
+                            continue
                 except:
                     print(f"设备 {remote_addr} 发送心跳包错误,与其断开连接")
                     break
 
+        device_id = None
         while True:
             try:
                 # 接收数据
@@ -76,36 +89,36 @@ class TCPServer(object):
                     break
 
                 # 解析用户名和密码
-                self.username, self.password = self.parse_credentials(data)
+                username, password = self.parse_credentials(data)
 
                 # 验证用户名和密码
-                if self.verify_credentials(self.username, self.password):
+                if self.verify_credentials(username, password):
                     # 登录成功
 
                     # 获取设备ID
-                    self.device_id = self.get_device_id(self.username)
-                    if self.device_id is None:
-                        print(f"设备 {remote_addr} {self.username} {self.password} id号不存在!")
+                    device_id = self.get_device_id(username)
+                    if device_id is None:
+                        print(f"设备 {remote_addr} {username} {password} id号不存在!")
                         print(f"设备 {remote_addr} 与其断开连接")
                         break
 
                     # 检查设备是否已在线
-                    if self.is_device_online(self.device_id):
-                        print(f"设备 {remote_addr} {self.username} {self.password} 已在线,重复登陆!")
+                    if self.is_device_online(device_id):
+                        print(f"设备 {remote_addr} {username} {password} 已在线,重复登陆!")
                         print(f"设备 {remote_addr} 与其断开连接")
                         break
 
                     # 更新在线状态为在线
-                    self.update_device_online_status(self.device_id, 1)
+                    self.update_device_online_status(device_id, 1)
 
                     # 关联设备ID和连接
-                    self.add_device_connection(self.device_id, client_socket)
+                    self.add_device_connection(device_id, client_socket)
 
                     # 打印登录成功信息
-                    print(f"设备 {remote_addr} {self.device_id} {self.username} {self.password} 登录成功!")
+                    print(f"设备 {remote_addr} {device_id} {username} {password} 登录成功!")
 
                     # 启动线程发送心跳包
-                    threading.Thread(target=send_heartbeat).start()
+                    threading.Thread(target=send_heartbeat, args=(device_id, username, password,)).start()
 
                     # 循环接收并转发消息
                     while True:
@@ -113,13 +126,13 @@ class TCPServer(object):
                         if not data:
                             break
 
-                        print(f"收到设备 {self.device_id} 的消息: {data}")
+                        print(f"设备 {remote_addr} {device_id} {username} {password}  的消息: {data}")
 
-                        self.forward_message(self.device_id, data, remote_addr)
+                        self.forward_message(device_id, username, password, data, remote_addr)
 
                 else:
                     # 登录失败
-                    print(f"设备 {remote_addr} {self.username} {self.password} 账号或密码不对!")
+                    print(f"设备 {remote_addr} {username} {password} 账号或密码不对!")
                     print(f"设备 {remote_addr} 与其断开连接")
                     break
 
@@ -129,13 +142,18 @@ class TCPServer(object):
                 break
 
         # 更新数据库中的在线状态
-        self.update_device_online_status(self.device_id, 0)
-
-        # 移除设备连接
-        self.remove_device_connection(self.device_id)
-
+        if device_id is None:
+            # 关闭客户端连接
+            client_socket.close()
+        else:
+            self.update_device_online_status(device_id, 0)
+            # 移除设备连接
+            self.remove_device_connection(device_id)
+            # 关闭客户端连接
+            client_socket.close()
         # 关闭客户端连接
         client_socket.close()
+
 
     # 解析用户名和密码
     def parse_credentials(self, data):
@@ -166,8 +184,24 @@ class TCPServer(object):
             return result[0]
         return None
 
+    # 获取目标设备ID
+    def get_target_device_id(self, device_id):
+        self.cursor.execute('SELECT device_b_id FROM passthrough WHERE device_a_id=?', (device_id,))
+        target_device_ids = self.cursor.fetchall()
+        if target_device_ids:
+            return target_device_ids
+        return None
+
     # 检查设备是否在线
     def is_device_online(self, device_id):
+        self.cursor.execute('SELECT online FROM devices WHERE id=?', (device_id,))
+        result = self.cursor.fetchone()
+        if result and result[0] == 1:
+            return True
+        return False
+
+    # 检查设备是否在线
+    def is_device_in_device_connections(self, device_id):
         self.cursor.execute('SELECT online FROM devices WHERE id=?', (device_id,))
         result = self.cursor.fetchone()
         if result and result[0] == 1:
@@ -191,14 +225,12 @@ class TCPServer(object):
                 del self.device_connections[device_id]
 
     # 转发消息给其他设备
-    def forward_message(self, device_id, message, remote_addr):
+    def forward_message(self, device_id, username, password, message, remote_addr):
         # 获取目标设备ID
-        self.cursor.execute('SELECT device_b_id FROM passthrough WHERE device_a_id=?', (device_id,))
-        target_device_ids = self.cursor.fetchall()
+        target_device_ids = self.get_target_device_id(device_id)
 
         for target_device_id in target_device_ids:
             target_device_id = target_device_id[0]
-
             # 如果目标设备在线,则直接转发
             if target_device_id in self.device_connections:
                 target_socket = self.device_connections[target_device_id]
@@ -206,8 +238,8 @@ class TCPServer(object):
 
             # 否则打印不在线提示
             else:
-                print(f"设备 {remote_addr} 消息转发失败,设备 {target_device_id} 不在线!")
-
+                print(
+                    f"设备 {remote_addr} {device_id} {username} {password}  消息转发失败,设备 {target_device_id}  不在线!")
 
 # 在其他地方调用函数启动TCP服务器
 # tcp_server = TCPServer()

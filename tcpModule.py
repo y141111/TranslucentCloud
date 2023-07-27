@@ -5,6 +5,8 @@ import threading
 import time
 from multiprocessing.pool import ThreadPool
 
+from tools import Tools
+
 
 class TCPServer(object):
 
@@ -39,6 +41,7 @@ class TCPServer(object):
             self.db_queue.task_done()
 
     def start(self):
+        self.tools = Tools()
         # 获取数据库中的TCP端口号
         self.local_conn.cursor.execute('SELECT value FROM config WHERE name="tcpPort"')
         tcp_port = int(self.local_conn.cursor.fetchone()[0])
@@ -58,7 +61,7 @@ class TCPServer(object):
         self.server_socket.bind(('0.0.0.0', tcp_port))
         self.server_socket.listen(5)
 
-        print(f"TCP服务器正在监听端口 {tcp_port}...")
+        print(f"{self.tools.get_current_time()}:TCP服务器正在监听端口 {tcp_port}...")
 
         # 在独立线程中接收并处理客户端连接
         threading.Thread(target=self.handle_client_connections).start()
@@ -77,20 +80,20 @@ class TCPServer(object):
         self.local_conn.cursor = self.local_conn.conn.cursor()
 
         remote_addr = client_socket.getpeername()
-        print(f"设备 {remote_addr} 建立连接,等待身份验证")
+        print(f"{self.tools.get_current_time()}:设备 {remote_addr} 建立连接,等待身份验证")
 
         # 定义发送心跳包的函数
         def send_heartbeat(device_id, username, password):
             self.local_conn.conn = sqlite3.connect('cfg.sqlite3', check_same_thread=False)
             self.local_conn.cursor = self.local_conn.conn.cursor()
-            print(f"设备 {remote_addr} {device_id} {username} {password} 开启心跳包线程!")
+            print(f"{self.tools.get_current_time()}:设备 {remote_addr} {device_id} {username} {password} 开启心跳包线程!")
             while True:
                 time.sleep(0.5)
                 try:
                     # 获取目标设备ID
                     target_device_ids = self.get_target_device_id(device_id)
                     if target_device_ids is None:
-                        print("设备没有目标设备 send_heartbeat")
+                        print(f"{self.tools.get_current_time()}:设备没有目标设备 send_heartbeat")
                         continue
                     # 判断目标设备 有没有在线的
                     for target_device_id in target_device_ids:
@@ -104,8 +107,8 @@ class TCPServer(object):
                         else:
                             continue
                 except Exception as e:
-                    print(f" {e} ")
-                    print(f"设备 {remote_addr} 发送心跳包错误,与其断开连接")
+                    print(f"{self.tools.get_current_time()}: {e} ")
+                    print(f"{self.tools.get_current_time()}:设备 {remote_addr} 发送心跳包错误,与其断开连接")
                     break
 
         device_id = None
@@ -114,8 +117,8 @@ class TCPServer(object):
                 # 接收数据
                 data = client_socket.recv(1024).decode()
                 if not data:
-                    print(f"设备 {remote_addr} 收到空数据")
-                    print(f"设备 {remote_addr} 与其断开连接")
+                    print(f"{self.tools.get_current_time()}:设备 {remote_addr} 收到空数据")
+                    print(f"{self.tools.get_current_time()}:设备 {remote_addr} 与其断开连接")
                     break
 
                 # 解析用户名和密码
@@ -128,15 +131,15 @@ class TCPServer(object):
                     # 获取设备ID
                     device_id = self.get_device_id(username)
                     if device_id is None:
-                        print(f"设备 {remote_addr} {username} {password} id号不存在!")
-                        print(f"设备 {remote_addr} 与其断开连接")
+                        print(f"{self.tools.get_current_time()}:设备 {remote_addr} {username} {password} id号不存在!")
+                        print(f"{self.tools.get_current_time()}:设备 {remote_addr} 与其断开连接")
                         device_id = None
                         break
 
                     # 检查设备是否已在线
                     if self.is_device_online(device_id):
-                        print(f"设备 {remote_addr} {username} {password} 已在线,重复登陆!")
-                        print(f"设备 {remote_addr} 与其断开连接")
+                        print(f"{self.tools.get_current_time()}:设备 {remote_addr} {username} {password} 已在线,重复登陆!")
+                        print(f"{self.tools.get_current_time()}:设备 {remote_addr} 与其断开连接")
                         device_id = None
                         break
 
@@ -147,7 +150,7 @@ class TCPServer(object):
                     self.add_device_connection(device_id, client_socket)
 
                     # 打印登录成功信息
-                    print(f"设备 {remote_addr} {device_id} {username} {password} 登录成功!")
+                    print(f"{self.tools.get_current_time()}:设备 {remote_addr} {device_id} {username} {password} 登录成功!")
 
                     # 启动线程发送心跳包
                     threading.Thread(target=send_heartbeat, args=(device_id, username, password,)).start()
@@ -158,7 +161,7 @@ class TCPServer(object):
                         if not data:
                             break
                         # 打印收到的设备信息。
-                        # print(f"设备 {remote_addr} {device_id} {username} {password}  的消息: {data}")
+                        # print(f"{self.tools.get_current_time()}:设备 {remote_addr} {device_id} {username} {password}  的消息: {data}")
 
                         # 获取目标设备ID
                         target_device_ids = self.get_target_device_id(device_id)
@@ -171,13 +174,13 @@ class TCPServer(object):
 
                 else:
                     # 登录失败
-                    print(f"设备 {remote_addr} {username} {password} 账号或密码不对!")
-                    print(f"设备 {remote_addr} 与其断开连接")
+                    print(f"{self.tools.get_current_time()}:设备 {remote_addr} {username} {password} 账号或密码不对!")
+                    print(f"{self.tools.get_current_time()}:设备 {remote_addr} 与其断开连接")
                     break
 
             except Exception as e:
-                print(f"设备 {remote_addr} 发生错误:{e}")
-                print(f"设备 {remote_addr} 与其断开连接")
+                print(f"{self.tools.get_current_time()}:设备 {remote_addr} 发生错误:{e}")
+                print(f"{self.tools.get_current_time()}:设备 {remote_addr} 与其断开连接")
                 break
 
         # 更新数据库中的在线状态
@@ -185,7 +188,7 @@ class TCPServer(object):
             # 关闭客户端连接
             client_socket.close()
         else:
-            print(f"{device_id} 断开这个设备！")
+            print(f"{self.tools.get_current_time()}:{device_id} 断开这个设备！")
             self.update_device_online_status(device_id, 0)
             # 移除设备连接
             self.remove_device_connection(device_id)
@@ -274,7 +277,7 @@ class TCPServer(object):
         # 获取目标设备ID
         # target_device_ids = self.get_target_device_id(device_id)
         if target_device_ids is None:
-            print("设备没有目标设备 forward_message")
+            print(f"{self.tools.get_current_time()}:设备没有目标设备 forward_message")
             return
         for target_device_id in target_device_ids:
             target_device_id = target_device_id[0]
@@ -285,8 +288,7 @@ class TCPServer(object):
 
             # 否则打印不在线提示
             else:
-                print(
-                    f"设备 {remote_addr} {device_id} {username} {password}  消息转发失败,设备 {target_device_id}  不在线!")
+                print(f"{self.tools.get_current_time()}:设备 {remote_addr} {device_id} {username} {password}  消息转发失败,设备 {target_device_id}  不在线!")
 
 # 在其他地方调用函数启动TCP服务器
 # tcp_server = TCPServer()

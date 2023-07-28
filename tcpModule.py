@@ -157,7 +157,7 @@ class TCPServer(object):
 
                     # 循环接收并转发消息
                     while True:
-                        data = client_socket.recv(1024).decode()
+                        data = client_socket.recv(1024)
                         if not data:
                             break
                         # 打印收到的设备信息。
@@ -284,7 +284,8 @@ class TCPServer(object):
             # 如果目标设备在线,则直接转发
             if target_device_id in self.device_connections:
                 target_socket = self.device_connections[target_device_id]
-                target_socket.send(message.encode())
+                # target_socket.send(message.encode())
+                target_socket.send(message)
 
             # 否则打印不在线提示
             else:

@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}修改设备{{ device[0] }}{% endblock %}
+
+{% block content %}
+
+<h1>修改设备 {{ device[0] }}</h1>
+
+<form method="POST" action="/devices/edit/{{ device[0] }}">
+
+  <label for="note">备注:</label>
+  <input type="text" id="note" name="note" value="{{ device[1] }}"><br>
+
+  <label for="protocol">协议:</label>
+
+  <input type="radio" id="protocol_tcp" name="protocol" value="tcpServer" {% if device[2] == 'tcpServer' %}checked{% endif %}>
+  <label for="protocol_tcp">TCP Server</label>
+
+  <input type="radio" id="protocol_udp" name="protocol" value="udpServer" {% if device[2] == 'udpServer' %}checked{% endif %}>
+  <label for="protocol_udp">UDP Server</label><br>
+
+  <label for="username">用户名:</label>
+  <input type="text" id="username" name="username" value="{{ device[3] }}"><br>
+
+  <label for="password">密码:</label>
+  <input type="password" id="password" name="password" value="{{ device[4] }}"><br>
+
+  <input type="submit" value="提交">
+
+</form>
+
+{% endblock %}

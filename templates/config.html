@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>配置管理</h1>
+
+<a href="/config/create">添加配置项</a><br><br>
+
+<table>
+  <tr>
+    <th>名称</th>
+    <th>值</th>
+    <th>操作</th>
+  </tr>
+  {% for config_item in config_items %}
+    <tr>
+      <td>{{ config_item[1] }}</td>
+      <td>{{ config_item[2] }}</td>
+      <td>
+        <a href="/config/edit/{{ config_item[0] }}">修改</a>
+        <a href="/config/delete/{{ config_item[0] }}">删除</a>
+      </td>
+    </tr>
+  {% endfor %}
+</table>
+
+{% endblock %}

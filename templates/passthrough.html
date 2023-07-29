@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>透传列表</h1>
+<a href="/passthrough/create">创建透传列表</a><br><br>
+<table>
+
+  {% for item in passthrough_list %}
+
+  <tr>
+    <td>{{ item[0] }}</td> 
+    <td>{{ item[1] }}</td>
+    <td>{{ item[2] }}</td>
+    <td>
+      <a href="/passthrough/edit/{{ item[0] }}">修改</a>
+      <a href="/passthrough/delete/{{ item[0] }}">删除</a>
+    </td>
+  </tr>
+
+  {% endfor %}
+
+</table>
+
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>修改透传列表</h1>
+
+<form method="post" action="/passthrough/edit/{{ passthrough_id }}">
+
+  <label for="device_a_id">设备A:</label>
+
+  <select id="device_a_id" name="device_a_id">
+
+  {% for device in devices %}
+
+    <option value="{{ device[0] }}" {% if device[0] == passthrough[1] %}selected{% endif %}>
+      {{ device[1] }} ({{ device[3] }}——{{ device[4] }}——{{ device[2] }}——{% if device[5] == 1 %}在线{% else %}离线{% endif %})
+    </option>
+
+  {% endfor %}
+
+  </select>
+
+  <br>
+
+  <label for="device_b_id">设备B:</label>
+
+  <select id="device_b_id" name="device_b_id">
+
+  {% for device in devices %}
+
+    <option value="{{ device[0] }}" {% if device[0] == passthrough[1] %}selected{% endif %}>
+      {{ device[1] }} ({{ device[3] }}——{{ device[4] }}——{{ device[2] }}——{% if device[5] == 1 %}在线{% else %}离线{% endif %})
+    </option>
+
+  {% endfor %}
+
+  </select>
+
+  <br>
+
+  <input type="submit" value="提交">
+
+</form>
+
+{% endblock %}

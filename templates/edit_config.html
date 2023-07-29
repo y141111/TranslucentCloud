@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>修改配置项 {{ config_id }}</h1>
+
+<form method="POST">
+  <input type="hidden" name="config_id" value="{{ config_id }}">
+  <label for="name">名称：</label>
+  <input type="text" id="name" name="name" value="{{ config_item[1] }}"><br>
+  <label for="value">值：</label>
+  <input type="text" id="value" name="value" value="{{ config_item[2] }}"><br>
+  <input type="submit" value="修改">
+</form>
+
+{% endblock %}

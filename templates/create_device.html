@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}创建设备{% endblock %}
+
+{% block content %}
+
+<h1>创建设备</h1>
+
+<form method="POST" action="/devices/create">
+
+  <label for="note">备注:</label>
+  <input type="text" id="note" name="note"><br>
+
+  <label for="protocol">协议:</label>
+
+  <input type="radio" id="protocol_tcp" name="protocol" value="tcpServer" checked>
+  <label for="protocol_tcp">TCP Server</label>
+
+  <input type="radio" id="protocol_udp" name="protocol" value="udpServer">
+  <label for="protocol_udp">UDP Server</label><br>
+
+  <label for="username">用户名:</label>
+  <input type="text" id="username" name="username"><br>
+
+  <label for="password">密码:</label>
+  <input type="password" id="password" name="password"><br>
+
+  <input type="submit" value="提交">
+
+</form> 
+
+{% endblock %}

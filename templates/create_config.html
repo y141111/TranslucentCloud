@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>创建配置项</h1>
+
+<form method="POST" action="/config/create">
+  <label for="name">名称：</label>
+  <input type="text" id="name" name="name"><br>
+  <label for="value">值：</label>
+  <input type="text" id="value" name="value"><br>
+  <input type="submit" value="创建">
+</form>
+
+{% endblock %}

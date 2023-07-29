@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}设备管理{% endblock %}
+
+{% block content %}
+
+<h1>设备管理</h1>
+
+<a href="/devices/create">添加设备</a><br><br>
+
+<h2>在线设备</h2>
+
+<table>
+    <tr>
+        <th>ID</th>
+        <th>名称</th>
+        <th>协议</th>
+        <th>账号</th>
+        <th>密码</th>
+        <th>操作</th>
+    </tr>
+
+    {% for device in devices %}
+    {% if device[5] == 1 %}
+
+
+    <tr>
+        <td>{{ device[0] }}</td>
+        <td>{{ device[1] }}</td>
+        <td>{{ device[2] }}</td>
+        <td>{{ device[3] }}</td>
+        <td>{{ device[4] }}</td>
+        <td>
+            <a href="/devices/edit/{{device[0]}}">修改</a>
+            <a href="/devices/delete/{{device[0]}}">删除</a>
+        </td>
+    </tr>
+
+    {% endif %}
+
+    {% endfor %}
+
+
+</table>
+<h2>离线设备</h2>
+
+<table>
+    <tr>
+        <th>ID</th>
+        <th>名称</th>
+        <th>协议</th>
+        <th>账号</th>
+        <th>密码</th>
+        <th>操作</th>
+    </tr>
+    {% for device in devices %}
+
+    {% if device[5] == 0 %}
+
+    <tr>
+        <td>{{ device[0] }}</td>
+        <td>{{ device[1] }}</td>
+        <td>{{ device[2] }}</td>
+        <td>{{ device[3] }}</td>
+        <td>{{ device[4] }}</td>
+        <td>
+            <a href="/devices/edit/{{device[0]}}">修改</a>
+            <a href="/devices/delete/{{device[0]}}">删除</a>
+        </td>
+    </tr>
+
+  {% endif %}
+
+  {% endfor %}
+
+</table>
+
+{% endblock %}

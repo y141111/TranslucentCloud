@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}删除设备{% endblock %}
+
+{% block content %}
+
+<h1>删除设备 {{ device[0] }}</h1>
+
+<form method="POST" action="/devices/delete/{{ device[0] }}">
+
+  <p>您确定要删除设备 id:{{ device[0] }}, 名称:{{ device[1] }}, 协议:{{ device[2] }}, 账号:{{ device[3] }}, 密码:{{ device[4] }}, 在线状态:{{ device[5] }} 吗?</p>
+
+  <input type="submit" value="删除">
+
+</form>
+
+{% endblock %}

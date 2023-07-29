@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>删除配置项 {{ config_id }}</h1>
+
+<form method="POST">
+  <input type="hidden" name="config_id" value="{{ config_id }}">
+  <p>确定要删除该配置项吗？</p>
+  <input type="submit" value="删除">
+</form>
+
+{% endblock %}
